@@ -1,0 +1,8 @@
+.env
+.env.*
+secrets.txt
+node_modules
+.next
+tsconfig.tsbuildinfo
+test.js
+test2.js

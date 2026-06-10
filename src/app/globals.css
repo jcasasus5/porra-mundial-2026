@@ -1,0 +1,204 @@
+@import "tailwindcss";
+
+:root {
+  color-scheme: light;
+  --background: #fff7ed;
+  --foreground: #18181b;
+  --brand-red: #d81920;
+  --brand-red-dark: #9f1239;
+  --brand-yellow: #facc15;
+  --brand-blue: #1d4ed8;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html {
+  overflow-x: hidden;
+}
+
+body {
+  margin: 0;
+  background: var(--background);
+  color: var(--foreground);
+  font-family: Arial, Helvetica, sans-serif;
+  cursor: default;
+  overflow-x: hidden;
+}
+
+a {
+  text-decoration: none;
+}
+
+a,
+button,
+summary,
+[role="button"] {
+  cursor: pointer;
+}
+
+a *,
+button *,
+[role="button"] * {
+  cursor: pointer;
+}
+
+p,
+h1,
+h2,
+h3,
+h4,
+h5,
+h6,
+span,
+div,
+td,
+th,
+dt,
+dd,
+label,
+li {
+  cursor: default;
+}
+
+input,
+textarea {
+  cursor: text;
+}
+
+select {
+  cursor: pointer;
+}
+
+button,
+input,
+select {
+  font: inherit;
+  max-width: 100%;
+}
+
+input[type="date"],
+input[type="time"],
+input[type="datetime-local"] {
+  width: 100%;
+  min-width: 0;
+}
+
+.mobile-date-shell {
+  display: block;
+  width: 100%;
+  max-width: 100%;
+  overflow: hidden;
+  border: 1px solid #d4d4d8;
+  border-radius: 6px;
+  background: white;
+}
+
+.mobile-date-input {
+  display: block;
+  width: 100%;
+  min-width: 0;
+  max-width: 100%;
+  border: 0;
+  background: transparent;
+  padding: 0.625rem 0.75rem;
+  font: inherit;
+  color: inherit;
+  -webkit-appearance: none;
+  appearance: none;
+}
+
+button:disabled {
+  cursor: wait;
+  opacity: 0.78;
+}
+
+button:disabled * {
+  cursor: wait;
+}
+
+a:focus-visible,
+button:focus-visible,
+input:focus-visible,
+select:focus-visible {
+  outline: 3px solid rgba(250, 204, 21, 0.72);
+  outline-offset: 2px;
+}
+
+.field {
+  width: 100%;
+  min-width: 0;
+  border-radius: 6px;
+  border: 1px solid #d4d4d8;
+  background: white;
+  padding: 0.625rem 0.75rem;
+}
+
+.button {
+  border-radius: 6px;
+  background: var(--brand-red);
+  color: white;
+  padding: 0.625rem 0.875rem;
+  font-weight: 600;
+  transition: background-color 160ms ease, transform 160ms ease, box-shadow 160ms ease;
+}
+
+.button:hover {
+  background: var(--brand-red-dark);
+}
+
+.button-secondary {
+  border-radius: 6px;
+  border: 1px solid rgba(216, 25, 32, 0.22);
+  background: white;
+  color: #18181b;
+  padding: 0.625rem 0.875rem;
+  font-weight: 600;
+  transition: border-color 160ms ease, background-color 160ms ease, color 160ms ease;
+}
+
+.button-secondary:hover {
+  border-color: rgba(216, 25, 32, 0.5);
+  background: #fff1f2;
+  color: var(--brand-red-dark);
+}
+
+.spinner {
+  display: inline-block;
+  width: 1.5rem;
+  height: 1.5rem;
+  border: 3px solid rgba(24, 24, 27, 0.18);
+  border-top-color: var(--brand-red);
+  border-radius: 999px;
+  animation: spin 750ms linear infinite;
+}
+
+.spinner-sm {
+  width: 1rem;
+  height: 1rem;
+  border-width: 2px;
+}
+
+.spinner-lg {
+  width: 2.25rem;
+  height: 2.25rem;
+  border-width: 4px;
+}
+
+.spinner-current {
+  border-color: rgb(255 255 255 / 0.38);
+  border-top-color: currentColor;
+}
+
+.hero-scrim {
+  background:
+    linear-gradient(90deg, rgba(127, 29, 29, 0.88), rgba(127, 29, 29, 0.55) 43%, rgba(15, 23, 42, 0.2)),
+    linear-gradient(0deg, rgba(0, 0, 0, 0.42), rgba(0, 0, 0, 0.04));
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}

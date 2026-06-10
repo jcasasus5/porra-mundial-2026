@@ -1,0 +1,12 @@
+.env
+.env.*
+!.env.example
+
+.vercel
+.next
+node_modules
+tsconfig.tsbuildinfo
+supabase/.temp
+
+secrets.txt
+IDEA.md
