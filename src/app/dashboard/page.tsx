@@ -1,5 +1,7 @@
 // @ts-nocheck
 import Link from "next/link";
+import { cookies } from "next/headers";
+import { DashboardPredictionFilter } from "@/components/dashboard-prediction-filter";
 import { DashboardSortMemory } from "@/components/dashboard-sort-memory";
 import { Nav } from "@/components/nav";
 import { PendingLink } from "@/components/pending-link";
@@ -30,6 +32,9 @@ const previousPhase: Record<string, string | null> = {
   third_place: "semi_final",
   final: "semi_final",
 };
+
+const pendingPredictionsFilterCookie = "dashboardPendingPredictionsOnly";
+const emptyPendingMatchesMessage = "No quedan partidos pendientes de predicción en esta vista.";
 
 type DashboardMatch = {
   id: string;
@@ -64,6 +69,15 @@ function groupSortHref(sort: "group" | "date") {
   return `/dashboard?phase=group&sort=${sort}`;
 }
 
+function withoutPredictions(
+  matches: DashboardMatch[],
+  predictedMatchIds: Set<string>,
+  enabled: boolean,
+) {
+  if (!enabled) return matches;
+  return matches.filter((match) => !predictedMatchIds.has(match.id));
+}
+
 function TeamName({ match, side }: { match: DashboardMatch; side: "home" | "away" }) {
   const team = side === "home" ? match.home : match.away;
   const placeholder = side === "home" ? match.home_placeholder : match.away_placeholder;
@@ -74,11 +88,17 @@ function MatchTable({
   matches,
   predictedMatchIds,
   showGroup = false,
+  emptyMessage = "No hay partidos en esta vista.",
 }: {
   matches: DashboardMatch[];
   predictedMatchIds: Set<string>;
   showGroup?: boolean;
+  emptyMessage?: string;
 }) {
+  if (matches.length === 0) {
+    return <p className="px-4 py-6 text-sm text-zinc-600 sm:px-5">{emptyMessage}</p>;
+  }
+
   return (
     <>
       <div className="divide-y divide-zinc-100 md:hidden">
@@ -164,6 +184,8 @@ export default async function DashboardPage({
   const selectedPhase = phaseOrder.includes(params.phase ?? "") ? params.phase! : "group";
   const groupSort = params.sort === "date" ? "date" : "group";
   const explicitGroupSort = params.sort === "date" || params.sort === "group" ? groupSort : undefined;
+  const cookieStore = await cookies();
+  const showPendingPredictionsOnly = cookieStore.get(pendingPredictionsFilterCookie)?.value === "1";
   const supabase = await createClient();
   const { data: matchesData } = await supabase
     .from("matches")
@@ -196,6 +218,7 @@ export default async function DashboardPage({
   const predictedMatchIds = new Set((myPredictions ?? []).map((prediction) => prediction.match_id));
   const selectedUnlocked = isPhaseUnlocked(matches, selectedPhase);
   const selectedMatches = matches.filter((match) => match.stage === selectedPhase);
+  const visibleSelectedMatches = withoutPredictions(selectedMatches, predictedMatchIds, showPendingPredictionsOnly);
   const firstMatch = matches[0] ?? null;
   const championOpen = firstMatch ? new Date(firstMatch.starts_at).getTime() > Date.now() : true;
   const groupNames = Array.from(
@@ -204,6 +227,23 @@ export default async function DashboardPage({
   const groupMatchesByDate = matches
     .filter((match) => match.stage === "group")
     .sort((a, b) => new Date(a.starts_at).getTime() - new Date(b.starts_at).getTime());
+  const visibleGroupMatchesByDate = withoutPredictions(
+    groupMatchesByDate,
+    predictedMatchIds,
+    showPendingPredictionsOnly,
+  );
+  const groupMatchSections = groupNames
+    .map((group) => ({
+      group,
+      matches: withoutPredictions(
+        matches.filter((match) => match.stage === "group" && match.group_name === group),
+        predictedMatchIds,
+        showPendingPredictionsOnly,
+      ),
+    }))
+    .filter((section) => !showPendingPredictionsOnly || section.matches.length > 0);
+  const currentPhaseMatches = selectedPhase === "group" ? groupMatchesByDate : selectedMatches;
+  const pendingMatchesInCurrentPhase = currentPhaseMatches.filter((match) => !predictedMatchIds.has(match.id)).length;
 
   return (
     <>
@@ -249,6 +289,14 @@ export default async function DashboardPage({
             );
           })}
         </nav>
+
+        {selectedPhase !== "champion" && selectedUnlocked ? (
+          <DashboardPredictionFilter
+            enabled={showPendingPredictionsOnly}
+            pendingCount={pendingMatchesInCurrentPhase}
+            totalCount={currentPhaseMatches.length}
+          />
+        ) : null}
 
         {selectedPhase === "champion" ? (
           <section className="mt-6 rounded-lg border border-zinc-200 bg-white p-4 sm:mt-8 sm:p-6">
@@ -353,23 +401,32 @@ export default async function DashboardPage({
                 <div className="border-b border-zinc-200 px-4 py-4 sm:px-5">
                   <h2 className="text-lg font-semibold">Todos los grupos por fecha</h2>
                 </div>
-                <MatchTable matches={groupMatchesByDate} predictedMatchIds={predictedMatchIds} showGroup />
+                <MatchTable
+                  emptyMessage={showPendingPredictionsOnly ? emptyPendingMatchesMessage : undefined}
+                  matches={visibleGroupMatchesByDate}
+                  predictedMatchIds={predictedMatchIds}
+                  showGroup
+                />
               </section>
             ) : (
-              groupNames.map((group) => {
-                const groupMatches = matches.filter(
-                  (match) => match.stage === "group" && match.group_name === group,
-                );
-
-                return (
+              groupMatchSections.length > 0 ? (
+                groupMatchSections.map(({ group, matches: groupMatches }) => (
                   <section className="rounded-lg border border-zinc-200 bg-white" key={group}>
                     <div className="border-b border-zinc-200 px-4 py-4 sm:px-5">
                       <h2 className="text-lg font-semibold">Grupo {group}</h2>
                     </div>
-                    <MatchTable matches={groupMatches} predictedMatchIds={predictedMatchIds} />
+                    <MatchTable
+                      emptyMessage={showPendingPredictionsOnly ? emptyPendingMatchesMessage : undefined}
+                      matches={groupMatches}
+                      predictedMatchIds={predictedMatchIds}
+                    />
                   </section>
-                );
-              })
+                ))
+              ) : (
+                <section className="rounded-lg border border-zinc-200 bg-white">
+                  <p className="px-4 py-6 text-sm text-zinc-600 sm:px-5">{emptyPendingMatchesMessage}</p>
+                </section>
+              )
             )}
           </div>
         ) : (
@@ -377,7 +434,11 @@ export default async function DashboardPage({
             <div className="border-b border-zinc-200 px-4 py-4 sm:px-5">
               <h2 className="text-lg font-semibold">{stageLabel(selectedPhase)}</h2>
             </div>
-            <MatchTable matches={selectedMatches} predictedMatchIds={predictedMatchIds} />
+            <MatchTable
+              emptyMessage={showPendingPredictionsOnly ? emptyPendingMatchesMessage : undefined}
+              matches={visibleSelectedMatches}
+              predictedMatchIds={predictedMatchIds}
+            />
           </section>
         )}
       </main>
