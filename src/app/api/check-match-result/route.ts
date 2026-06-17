@@ -1,6 +1,8 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { checkMatchResult } from "@/lib/worldcup26";
 
+export const maxDuration = 60;
+
 export async function POST(request: NextRequest) {
   try {
     const authHeader = request.headers.get("authorization");
