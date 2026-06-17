@@ -1,5 +1,5 @@
 // @ts-nocheck
-import Link from "next/link";
+import { PendingLink } from "@/components/pending-link";
 import { Nav } from "@/components/nav";
 import { SubmitButton } from "@/components/submit-button";
 import { savePrediction } from "@/lib/actions";
@@ -58,9 +58,9 @@ export default async function MatchPage({ params }: { params: Promise<{ id: stri
     <>
       <Nav profile={profile} />
       <main className="mx-auto max-w-4xl px-4 py-6 sm:py-8">
-        <Link className="button-secondary inline-flex w-fit items-center" href="/dashboard">
+        <PendingLink className="button-secondary inline-flex w-fit items-center" href="/dashboard">
           Volver al dashboard
-        </Link>
+        </PendingLink>
 
         <section className="mt-5 rounded-lg border border-zinc-200 bg-white p-4 sm:p-6">
           <p className="text-sm font-semibold uppercase tracking-wide text-emerald-700">
