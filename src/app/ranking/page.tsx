@@ -26,6 +26,19 @@ export default async function RankingPage() {
     .map((user) => ({ ...user, points: totals.get(user.id) ?? 0 }))
     .sort((a, b) => b.points - a.points || a.username.localeCompare(b.username));
 
+  const positionByPoints = ranking.reduce(
+    (positions, user, index) =>
+      positions.has(user.points)
+        ? positions
+        : new Map([...positions, [user.points, index + 1]]),
+    new Map()
+  );
+
+  const rankingWithPositions = ranking.map((user) => ({
+    ...user,
+    position: positionByPoints.get(user.points),
+  }));
+
   return (
     <>
       <Nav profile={profile} />
@@ -41,9 +54,9 @@ export default async function RankingPage() {
               </tr>
             </thead>
             <tbody>
-              {ranking.map((user, index) => (
+              {rankingWithPositions.map((user) => (
                 <tr key={user.id} className="border-t border-zinc-100">
-                  <td className="px-4 py-3 sm:px-5">{index + 1}</td>
+                  <td className="px-4 py-3 sm:px-5">{user.position}</td>
                   <td className="px-4 py-3 font-medium sm:px-5">{user.username}</td>
                   <td className="px-4 py-3 text-right font-semibold sm:px-5">{user.points}</td>
                 </tr>
