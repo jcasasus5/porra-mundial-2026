@@ -7,6 +7,8 @@ import { recalculateScoresForMatches } from "@/lib/scoring";
 const BASE_URL = "https://worldcup26.ir";
 const RESULT_CHECK_DELAY_MINUTES = 95;
 const RESULT_RETRY_MINUTES = 5;
+const PROVIDER_REQUEST_TIMEOUT_MS = 15_000;
+const PROVIDER_REQUEST_ATTEMPTS = 3;
 
 const STADIUM_OFFSETS_TO_SPAIN: Record<string, number> = {
   "1": 8,
@@ -180,16 +182,48 @@ function shouldPollMatch(match: ExistingMatch, now: Date) {
   return new Date(match.last_result_checked_at).getTime() <= now.getTime() - RESULT_RETRY_MINUTES * 60_000;
 }
 
-async function fetchJson<T>(path: string) {
-  const response = await fetch(`${BASE_URL}${path}`, {
-    cache: "no-store",
-  });
+function wait(milliseconds: number) {
+  return new Promise((resolve) => setTimeout(resolve, milliseconds));
+}
 
-  if (!response.ok) {
-    throw new Error(`worldcup26.ir responded ${response.status} for ${path}`);
+async function fetchJson<T>(path: string) {
+  let lastError: unknown;
+
+  for (let attempt = 1; attempt <= PROVIDER_REQUEST_ATTEMPTS; attempt += 1) {
+    try {
+      const response = await fetch(`${BASE_URL}${path}`, {
+        cache: "no-store",
+        headers: {
+          Accept: "application/json",
+          "User-Agent": "porra-mundial-2026/1.0",
+        },
+        signal: AbortSignal.timeout(PROVIDER_REQUEST_TIMEOUT_MS),
+      });
+
+      if (!response.ok) {
+        throw new Error(`worldcup26.ir responded ${response.status} for ${path}`);
+      }
+
+      return (await response.json()) as T;
+    } catch (error) {
+      lastError = error;
+      console.warn("[worldcup26] provider request failed", {
+        path,
+        attempt,
+        error: error instanceof Error ? error.message : String(error),
+      });
+
+      if (attempt < PROVIDER_REQUEST_ATTEMPTS) {
+        await wait(attempt * 1_000);
+      }
+    }
   }
 
-  return (await response.json()) as T;
+  throw new Error(
+    `worldcup26.ir request failed after ${PROVIDER_REQUEST_ATTEMPTS} attempts for ${path}: ${
+      lastError instanceof Error ? lastError.message : String(lastError)
+    }`,
+  );
 }
 
 async function upsertTeam(team: WorldCupTeam) {
@@ -289,7 +323,7 @@ async function updateMatchFromGame(
           raw_api_payload: game,
           last_result_checked_at: new Date().toISOString(),
           result_synced_at: new Date().toISOString(),
-          manual_override: true,
+          manual_override: false,
         }
       : {
           raw_api_payload: game,
@@ -435,7 +469,23 @@ export async function checkMatchResult(matchId: string) {
     return { status: "skipped", reason: existing.manual_override ? "manual_override" : "already_finished" };
   }
 
-  const gamesPayload = await fetchJson<GamesResponse>("/get/games");
+  let gamesPayload: GamesResponse;
+
+  try {
+    gamesPayload = await fetchJson<GamesResponse>("/get/games");
+  } catch (error) {
+    await scheduleNextCheck(matchId, new Date(Date.now() + RESULT_RETRY_MINUTES * 60_000));
+    console.error("[worldcup26] match result check rescheduled after provider failure", {
+      matchId,
+      fixtureId: existing.api_football_fixture_id,
+      error: error instanceof Error ? error.message : String(error),
+    });
+
+    return {
+      status: "rescheduled",
+      reason: "provider_error",
+    };
+  }
   const game = (gamesPayload.games ?? []).find(
     (candidate) => Number.parseInt(candidate.id, 10) === existing.api_football_fixture_id,
   );
