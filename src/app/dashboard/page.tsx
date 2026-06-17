@@ -2,6 +2,7 @@
 import Link from "next/link";
 import { cookies } from "next/headers";
 import { DashboardPredictionFilter, type DashboardMatchFilter } from "@/components/dashboard-prediction-filter";
+import { DashboardScrollMemory } from "@/components/dashboard-scroll-memory";
 import { DashboardSortMemory } from "@/components/dashboard-sort-memory";
 import { Nav } from "@/components/nav";
 import { PendingLink } from "@/components/pending-link";
@@ -282,6 +283,7 @@ export default async function DashboardPage({
 
   return (
     <>
+      <DashboardScrollMemory />
       <DashboardSortMemory sort={explicitGroupSort} />
       <Nav profile={profile} />
       <main className="mx-auto max-w-6xl px-4 py-6 sm:py-8">
