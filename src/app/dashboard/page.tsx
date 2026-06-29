@@ -72,6 +72,16 @@ function groupSortHref(sort: "group" | "date") {
   return `/dashboard?phase=group&sort=${sort}`;
 }
 
+function matchHref(matchId: string, phase: string, sort?: "group" | "date") {
+  const params = new URLSearchParams({ phase });
+
+  if (phase === "group" && sort) {
+    params.set("sort", sort);
+  }
+
+  return `/matches/${matchId}?${params.toString()}`;
+}
+
 function readMatchFilter(cookieStore: Awaited<ReturnType<typeof cookies>>): DashboardMatchFilter {
   const filter = cookieStore.get(matchFilterCookie)?.value;
 
@@ -121,11 +131,15 @@ function TeamName({ match, side }: { match: DashboardMatch; side: "home" | "away
 function MatchTable({
   matches,
   predictedMatchIds,
+  phase,
+  sort,
   showGroup = false,
   emptyMessage = "No hay partidos en esta vista.",
 }: {
   matches: DashboardMatch[];
   predictedMatchIds: Set<string>;
+  phase: string;
+  sort?: "group" | "date";
   showGroup?: boolean;
   emptyMessage?: string;
 }) {
@@ -139,7 +153,7 @@ function MatchTable({
         {matches.map((match) => (
           <Link
             className="block px-4 py-4 transition hover:bg-red-50/70 focus-visible:bg-red-50/70"
-            href={`/matches/${match.id}`}
+            href={matchHref(match.id, phase, sort)}
             key={match.id}
           >
             <p className="break-words text-base font-semibold">
@@ -180,7 +194,7 @@ function MatchTable({
           {matches.map((match) => (
             <Link
               className="grid grid-cols-[1.15fr_1.7fr_0.9fr_0.8fr_0.85fr] items-center transition hover:bg-red-50/70 hover:shadow-[inset_3px_0_0_var(--brand-red)] focus-visible:bg-red-50/70"
-              href={`/matches/${match.id}`}
+              href={matchHref(match.id, phase, sort)}
               key={match.id}
             >
               <div className="px-5 py-3">{formatDateTime(match.starts_at)}</div>
@@ -442,7 +456,9 @@ export default async function DashboardPage({
                 <MatchTable
                   emptyMessage={activeFilterEmptyMessage}
                   matches={visibleGroupMatchesByDate}
+                  phase="group"
                   predictedMatchIds={predictedMatchIds}
+                  sort={groupSort}
                   showGroup
                 />
               </section>
@@ -456,7 +472,9 @@ export default async function DashboardPage({
                     <MatchTable
                       emptyMessage={activeFilterEmptyMessage}
                       matches={groupMatches}
+                      phase="group"
                       predictedMatchIds={predictedMatchIds}
+                      sort={groupSort}
                     />
                   </section>
                 ))
@@ -477,6 +495,7 @@ export default async function DashboardPage({
             <MatchTable
               emptyMessage={activeFilterEmptyMessage}
               matches={visibleSelectedMatches}
+              phase={selectedPhase}
               predictedMatchIds={predictedMatchIds}
             />
           </section>

@@ -7,8 +7,36 @@ import { requireApprovedUser } from "@/lib/auth";
 import { effectiveMatchStatus, formatDateTime, stageLabel, statusLabel } from "@/lib/format";
 import { createClient } from "@/lib/supabase/server";
 
-export default async function MatchPage({ params }: { params: Promise<{ id: string }> }) {
+const phaseOrder = [
+  "champion",
+  "group",
+  "round_of_32",
+  "round_of_16",
+  "quarter_final",
+  "semi_final",
+  "third_place",
+  "final",
+];
+
+function dashboardHref(phase: string, sort?: string) {
+  const selectedPhase = phaseOrder.includes(phase) ? phase : "group";
+
+  if (selectedPhase === "group" && (sort === "group" || sort === "date")) {
+    return `/dashboard?phase=group&sort=${sort}`;
+  }
+
+  return `/dashboard?phase=${selectedPhase}`;
+}
+
+export default async function MatchPage({
+  params,
+  searchParams,
+}: {
+  params: Promise<{ id: string }>;
+  searchParams: Promise<{ phase?: string; sort?: string }>;
+}) {
   const { id } = await params;
+  const query = await searchParams;
   const { profile } = await requireApprovedUser();
   const supabase = await createClient();
 
@@ -47,6 +75,8 @@ export default async function MatchPage({ params }: { params: Promise<{ id: stri
   const isKnockout = match.stage !== "group";
   const homeName = match.home?.name ?? "Por determinar";
   const awayName = match.away?.name ?? "Por determinar";
+  const returnPhase = query.phase && phaseOrder.includes(query.phase) ? query.phase : match.stage;
+  const returnHref = dashboardHref(returnPhase, query.sort);
   const qualifiedPredictionName = (teamId: string | null) => {
     if (!teamId) return "Sin selección";
     if (teamId === match.home_team_id) return homeName;
@@ -58,7 +88,7 @@ export default async function MatchPage({ params }: { params: Promise<{ id: stri
     <>
       <Nav profile={profile} />
       <main className="mx-auto max-w-4xl px-4 py-6 sm:py-8">
-        <PendingLink className="button-secondary inline-flex w-fit items-center" href="/dashboard">
+        <PendingLink className="button-secondary inline-flex w-fit items-center" href={returnHref}>
           Volver al dashboard
         </PendingLink>
 
