@@ -35,7 +35,7 @@ export default async function AdminPage() {
 
   const { data: matches } = await supabase
     .from("matches")
-    .select("id, stage, group_name, starts_at, status, home_goals, away_goals, home_team_id, away_team_id, manual_override, home:teams!matches_home_team_id_fkey(name), away:teams!matches_away_team_id_fkey(name), home_placeholder, away_placeholder")
+    .select("id, stage, group_name, starts_at, status, home_goals, away_goals, home_team_id, away_team_id, qualified_team_id, manual_override, home:teams!matches_home_team_id_fkey(name), away:teams!matches_away_team_id_fkey(name), home_placeholder, away_placeholder")
     .order("starts_at", { ascending: true });
 
   return (
@@ -176,7 +176,7 @@ export default async function AdminPage() {
 
                     <label className="grid gap-2 text-sm font-medium">
                       Clasificado
-                      <select className="field" defaultValue="" name="qualifiedTeamId">
+                      <select className="field" defaultValue={match.qualified_team_id ?? ""} name="qualifiedTeamId">
                         <option value="">Automático</option>
                         {match.home_team_id ? <option value={match.home_team_id}>{homeName}</option> : null}
                         {match.away_team_id ? <option value={match.away_team_id}>{awayName}</option> : null}
@@ -282,7 +282,7 @@ export default async function AdminPage() {
                         </select>
                       </td>
                       <td className="px-5 py-3">
-                        <select className="field" defaultValue="" form={`result-desktop-${match.id}`} name="qualifiedTeamId">
+                        <select className="field" defaultValue={match.qualified_team_id ?? ""} form={`result-desktop-${match.id}`} name="qualifiedTeamId">
                           <option value="">Automático</option>
                           {match.home_team_id ? <option value={match.home_team_id}>{homeName}</option> : null}
                           {match.away_team_id ? <option value={match.away_team_id}>{awayName}</option> : null}

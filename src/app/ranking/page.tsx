@@ -3,6 +3,26 @@ import { Nav } from "@/components/nav";
 import { requireApprovedUser } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 
+async function fetchAllScoreEvents(supabase: Awaited<ReturnType<typeof createClient>>) {
+  const pageSize = 1000;
+  const events = [];
+
+  for (let from = 0; ; from += pageSize) {
+    const { data, error } = await supabase
+      .from("score_events")
+      .select("user_id, points")
+      .range(from, from + pageSize - 1);
+
+    if (error) throw error;
+
+    events.push(...(data ?? []));
+
+    if ((data ?? []).length < pageSize) break;
+  }
+
+  return events;
+}
+
 export default async function RankingPage() {
   const { profile } = await requireApprovedUser();
   const supabase = await createClient();
@@ -13,12 +33,10 @@ export default async function RankingPage() {
     .eq("status", "approved")
     .order("username", { ascending: true });
 
-  const { data: scoreEvents } = await supabase
-    .from("score_events")
-    .select("user_id, points");
+  const scoreEvents = await fetchAllScoreEvents(supabase);
 
   const totals = new Map<string, number>();
-  for (const event of scoreEvents ?? []) {
+  for (const event of scoreEvents) {
     totals.set(event.user_id, (totals.get(event.user_id) ?? 0) + event.points);
   }
 

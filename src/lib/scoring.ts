@@ -29,6 +29,28 @@ type ScoreEventInsert = {
   points: number;
 };
 
+async function fetchPredictionsForMatches(supabase: ReturnType<typeof getSupabaseAdmin>, matchIds: string[]) {
+  const pageSize = 1000;
+  const predictions: Prediction[] = [];
+
+  for (let from = 0; ; from += pageSize) {
+    const { data, error } = await supabase
+      .from("match_predictions")
+      .select("id, user_id, match_id, predicted_home_goals, predicted_away_goals, predicted_qualified_team_id")
+      .in("match_id", matchIds)
+      .range(from, from + pageSize - 1)
+      .returns<Prediction[]>();
+
+    if (error) throw error;
+
+    predictions.push(...(data ?? []));
+
+    if ((data ?? []).length < pageSize) break;
+  }
+
+  return predictions;
+}
+
 function sign(homeGoals: number, awayGoals: number) {
   if (homeGoals > awayGoals) return "home";
   if (homeGoals < awayGoals) return "away";
@@ -83,16 +105,10 @@ export async function recalculateScoresForMatches(matchIds?: string[]) {
   }
 
   if (finishedMatchIds.length > 0) {
-    const { data: predictions, error: predictionsError } = await supabase
-      .from("match_predictions")
-      .select("id, user_id, match_id, predicted_home_goals, predicted_away_goals, predicted_qualified_team_id")
-      .in("match_id", finishedMatchIds)
-      .returns<Prediction[]>();
-
-    if (predictionsError) throw predictionsError;
+    const predictions = await fetchPredictionsForMatches(supabase, finishedMatchIds);
 
     const matchById = new Map(finishedMatches.map((match) => [match.id, match]));
-    const scoreEvents = (predictions ?? []).flatMap((prediction) => {
+    const scoreEvents = predictions.flatMap((prediction) => {
       const match = matchById.get(prediction.match_id);
       if (!match || match.home_goals === null || match.away_goals === null) return [];
 

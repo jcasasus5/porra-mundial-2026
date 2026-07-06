@@ -44,6 +44,8 @@ type WorldCupGame = {
   away_team_id: string;
   home_score: string;
   away_score: string;
+  home_penalty_score?: string;
+  away_penalty_score?: string;
   group: string;
   local_date: string;
   finished: string;
@@ -64,6 +66,7 @@ type ExistingMatch = {
   status: string;
   home_goals: number | null;
   away_goals: number | null;
+  qualified_team_id: string | null;
   manual_override: boolean;
   last_result_checked_at: string | null;
   result_synced_at: string | null;
@@ -127,6 +130,29 @@ function parseScore(value: string, isFinished: boolean) {
   if (!isFinished) return null;
   const parsed = Number.parseInt(value, 10);
   return Number.isFinite(parsed) ? parsed : null;
+}
+
+function qualifiedTeamFromResult(
+  game: WorldCupGame,
+  isFinished: boolean,
+  homeTeamId: string | null,
+  awayTeamId: string | null,
+) {
+  const homeGoals = parseScore(game.home_score, isFinished);
+  const awayGoals = parseScore(game.away_score, isFinished);
+
+  if (homeGoals === null || awayGoals === null) return null;
+  if (homeGoals > awayGoals) return homeTeamId;
+  if (awayGoals > homeGoals) return awayTeamId;
+
+  const homePenalties = parseScore(game.home_penalty_score ?? "", isFinished);
+  const awayPenalties = parseScore(game.away_penalty_score ?? "", isFinished);
+
+  if (homePenalties === null || awayPenalties === null) return null;
+  if (homePenalties > awayPenalties) return homeTeamId;
+  if (awayPenalties > homePenalties) return awayTeamId;
+
+  return null;
 }
 
 function parseWorldCupDate(value: string, stadiumId: string) {
@@ -252,7 +278,7 @@ async function loadExistingMatches() {
   const supabase = getSupabaseAdmin();
   const { data, error } = await supabase
     .from("matches")
-    .select("id, api_football_fixture_id, stage, starts_at, status, home_goals, away_goals, manual_override, last_result_checked_at, result_synced_at")
+    .select("id, api_football_fixture_id, stage, starts_at, status, home_goals, away_goals, qualified_team_id, manual_override, last_result_checked_at, result_synced_at")
     .not("api_football_fixture_id", "is", null)
     .returns<ExistingMatch[]>();
 
@@ -266,9 +292,20 @@ function teamUuid(teamId: string, teamIdToUuid: Map<string, string>) {
   return teamIdToUuid.get(teamId) ?? null;
 }
 
-function resultChanged(existing: ExistingMatch | undefined, status: string, homeGoals: number | null, awayGoals: number | null) {
+function resultChanged(
+  existing: ExistingMatch | undefined,
+  status: string,
+  homeGoals: number | null,
+  awayGoals: number | null,
+  qualifiedTeamId: string | null,
+) {
   if (!existing) return status === "finished";
-  return existing.status !== status || existing.home_goals !== homeGoals || existing.away_goals !== awayGoals;
+  return (
+    existing.status !== status ||
+    existing.home_goals !== homeGoals ||
+    existing.away_goals !== awayGoals ||
+    existing.qualified_team_id !== qualifiedTeamId
+  );
 }
 
 async function loadTeamIdMap() {
@@ -301,10 +338,8 @@ async function updateMatchFromGame(
   const awayGoals = parseScore(game.away_score, isFinished);
   const stage = stageFromType(game.type);
   const status = statusFromGame(game);
-  const homeWon = homeGoals !== null && awayGoals !== null && homeGoals > awayGoals;
-  const awayWon = homeGoals !== null && awayGoals !== null && awayGoals > homeGoals;
-  const qualifiedTeamId = homeWon ? homeTeamId : awayWon ? awayTeamId : null;
-  const didResultChange = resultChanged(existing, status, homeGoals, awayGoals);
+  const qualifiedTeamId = qualifiedTeamFromResult(game, isFinished, homeTeamId, awayTeamId);
+  const didResultChange = resultChanged(existing, status, homeGoals, awayGoals, qualifiedTeamId);
 
   if (options.scope === "result") {
     if (!existing) {
@@ -458,7 +493,7 @@ export async function checkMatchResult(matchId: string) {
   const supabase = getSupabaseAdmin();
   const { data: existing, error: matchError } = await supabase
     .from("matches")
-    .select("id, api_football_fixture_id, stage, starts_at, status, home_goals, away_goals, manual_override, last_result_checked_at, result_synced_at")
+    .select("id, api_football_fixture_id, stage, starts_at, status, home_goals, away_goals, qualified_team_id, manual_override, last_result_checked_at, result_synced_at")
     .eq("id", matchId)
     .single();
 
